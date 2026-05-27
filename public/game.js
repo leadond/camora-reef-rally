@@ -1648,6 +1648,14 @@ function chime(freq, duration, type = "sine") {
   }
 }
 
+function isTypingTarget(target) {
+  if (!target || !(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  const tag = target.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  return Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
+}
+
 function keyHandler(event) {
   const key = event.key.toLowerCase();
   if (state.helpOpen) {
@@ -1655,6 +1663,10 @@ function keyHandler(event) {
       event.preventDefault();
       closeHelp();
     }
+    return;
+  }
+  // Let players type normally in forms without triggering gameplay hotkeys.
+  if (isTypingTarget(event.target)) {
     return;
   }
   if (key === "h") {
