@@ -26,9 +26,16 @@ const els = {
   levelNow: document.querySelector("#levelNow"),
   xpMeter: document.querySelector("#xpMeter"),
   xpCopy: document.querySelector("#xpCopy"),
+  chapterMap: document.querySelector("#chapterMap"),
+  chapterStatus: document.querySelector("#chapterStatus"),
   missionList: document.querySelector("#missionList"),
+  dailyStreak: document.querySelector("#dailyStreak"),
+  dailyChallengeList: document.querySelector("#dailyChallengeList"),
   animalGrid: document.querySelector("#animalGrid"),
   collectibleGrid: document.querySelector("#collectibleGrid"),
+  uniformSelect: document.querySelector("#uniformSelect"),
+  pomSelect: document.querySelector("#pomSelect"),
+  trailSelect: document.querySelector("#trailSelect"),
   badgeList: document.querySelector("#badgeList"),
   leaderboard: document.querySelector("#leaderboard"),
   pauseOverlay: document.querySelector("#pauseOverlay"),
@@ -96,6 +103,7 @@ const badgeRules = [
   { id: "Sea Card Deck", test: save => save.seaAnimalCards.length >= animalRoster.length },
   { id: "Sticker Queen", test: save => save.stickerBook.length >= 6 },
   { id: "Brainy Current", test: save => save.labFacts.length >= 4 },
+  { id: "Daily Wave", test: save => (save.daily?.streak || 0) >= 3 },
   { id: "Level Legend", test: save => save.level >= 5 },
   { id: "Ocean Legend", test: save => save.highScore >= 5000 }
 ];
@@ -107,6 +115,43 @@ const missionMeta = [
   { id: "cleanReef", label: "Clean Reef Saves", goal: 25 },
   { id: "treasureTrail", label: "Treasure Vault", goal: 60 }
 ];
+
+const chapterMeta = [
+  { id: "Coral Cove", start: 1, end: 3, color: "#ff7d64", copy: "Warm-up waters with quick sparkle lanes." },
+  { id: "Dolphin Dash", start: 4, end: 6, color: "#38c8ff", copy: "Faster lanes and bouncy rhythm notes." },
+  { id: "Starlight Kelp", start: 7, end: 9, color: "#7f8bff", copy: "Treasure-heavy tides and bigger distractions." },
+  { id: "Crystal Trench", start: 10, end: 12, color: "#4ce3a0", copy: "Long runs with giant sea encounters." },
+  { id: "Aurora Abyss", start: 13, end: 16, color: "#b556f1", copy: "Elite chapters for true reef legends." }
+];
+
+const uniformThemes = {
+  sunrise: { top: "#ff5e70", bottom: "#ffd34f", stripe: "#ffffff", accent: "#264a85" },
+  reef: { top: "#20b26b", bottom: "#45e1c5", stripe: "#ffffff", accent: "#0f5d7c" },
+  royal: { top: "#7a78ff", bottom: "#c46ef7", stripe: "#ffe766", accent: "#233f7f" }
+};
+
+const pomThemes = {
+  classic: ["#ffffff", "#ffd34f", "#ff5e70", "#4ce3a0"],
+  ocean: ["#ffffff", "#8be8ff", "#64d8ff", "#336dd9"],
+  sunset: ["#fff2ca", "#ff9ab5", "#ff7d64", "#ffd34f"]
+};
+
+const trailThemes = {
+  sparkle: ["#ffd34f", "#64d8ff"],
+  starlight: ["#f7f8ff", "#7f8bff", "#9be7ff"],
+  coral: ["#ff9ab5", "#ff6f8a", "#ffe06b"]
+};
+
+const dailyChallengePool = [
+  { id: "sparkle_sprint", metric: "sparkles", goal: 260, label: "Gather 260 Sparkles" },
+  { id: "perfect_beats", metric: "perfect_cheer", goal: 10, label: "Hit 10 Perfect Cheers" },
+  { id: "rescue_rush", metric: "rescues", goal: 6, label: "Rescue 6 Sea Animals" },
+  { id: "pompom_pop", metric: "pompoms", goal: 5, label: "Collect 5 Pom Poms" },
+  { id: "treasure_dive", metric: "treasures", goal: 10, label: "Find 10 Treasure Items" },
+  { id: "combo_builder", metric: "combo_peak", goal: 14, label: "Reach a 14x Combo", peak: true }
+];
+
+const dailyChallengeLookup = Object.fromEntries(dailyChallengePool.map(challenge => [challenge.id, challenge]));
 
 const musicPattern = [
   { freq: 392, type: "triangle", gain: 0.27, duration: 0.24 },
@@ -149,6 +194,19 @@ const defaultSave = () => ({
     cleanReef: 0,
     treasureTrail: 0
   },
+  daily: {
+    dateKey: null,
+    streak: 0,
+    completedToday: false,
+    lastCompletedDate: null,
+    activeChallenges: [],
+    progress: {}
+  },
+  customization: {
+    uniformTheme: "sunrise",
+    pomTheme: "classic",
+    trailTheme: "sparkle"
+  },
   settings: {
     reducedMotion: false,
     sound: true,
@@ -185,6 +243,8 @@ const state = {
   trail: [],
   particles: [],
   floaters: [],
+  ambientEncounters: [],
+  encounterTimer: 0,
   distractionTimer: 0,
   trailTimer: 0,
   cheerPulse: 0,
@@ -201,6 +261,7 @@ const state = {
   musicLoopTimer: null,
   nextMusicNoteAt: 0,
   musicStep: 0,
+  dailyCompletionAnnouncedFor: null,
   camoraFace: null,
   camoraFaceLoaded: false
 };
@@ -227,6 +288,147 @@ function formatNumber(value) {
 
 function xpForLevel(level) {
   return 220 + Math.max(0, level - 1) * 140;
+}
+
+function dateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function toDate(key) {
+  if (typeof key !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return null;
+  const stamp = Date.parse(`${key}T00:00:00`);
+  if (!Number.isFinite(stamp)) return null;
+  return new Date(stamp);
+}
+
+function dayGap(fromKey, toKey) {
+  const from = toDate(fromKey);
+  const to = toDate(toKey);
+  if (!from || !to) return null;
+  return Math.round((to.getTime() - from.getTime()) / 86_400_000);
+}
+
+function hashSeed(value) {
+  let hash = 2166136261;
+  const text = String(value || "");
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function chapterIndexForLevel(level) {
+  for (let index = 0; index < chapterMeta.length; index += 1) {
+    const chapter = chapterMeta[index];
+    if (level >= chapter.start && level <= chapter.end) return index;
+  }
+  return chapterMeta.length - 1;
+}
+
+function chapterForLevel(level) {
+  return chapterMeta[chapterIndexForLevel(level)];
+}
+
+function challengeListForDate(dayKey) {
+  const picks = [];
+  const used = new Set();
+  let seed = hashSeed(dayKey);
+  while (picks.length < 3 && used.size < dailyChallengePool.length) {
+    const index = seed % dailyChallengePool.length;
+    const challenge = dailyChallengePool[index];
+    if (challenge && !used.has(challenge.id)) {
+      picks.push(challenge.id);
+      used.add(challenge.id);
+    }
+    seed = Math.imul(seed ^ 2246822519, 3266489917) >>> 0;
+  }
+  return picks.length ? picks : dailyChallengePool.slice(0, 3).map(challenge => challenge.id);
+}
+
+function ensureDailyChallenges() {
+  const today = dateKey();
+  const daily = state.save.daily;
+  if (!daily.dateKey || daily.dateKey !== today) {
+    daily.dateKey = today;
+    daily.completedToday = false;
+    daily.activeChallenges = challengeListForDate(today);
+    daily.progress = {};
+    for (const challengeId of daily.activeChallenges) {
+      daily.progress[challengeId] = 0;
+    }
+    state.dailyCompletionAnnouncedFor = null;
+  }
+  if (!Array.isArray(daily.activeChallenges) || !daily.activeChallenges.length) {
+    daily.activeChallenges = challengeListForDate(today);
+  }
+  if (!daily.progress || typeof daily.progress !== "object") {
+    daily.progress = {};
+  }
+  for (const challengeId of daily.activeChallenges) {
+    const challenge = dailyChallengeLookup[challengeId];
+    if (!challenge) continue;
+    const current = Number(daily.progress[challengeId]);
+    daily.progress[challengeId] = Number.isFinite(current) ? clamp(Math.floor(current), 0, challenge.goal) : 0;
+  }
+}
+
+function checkDailyCompletion(announce = true) {
+  ensureDailyChallenges();
+  const daily = state.save.daily;
+  if (daily.completedToday) return false;
+  const done = daily.activeChallenges.every(challengeId => {
+    const challenge = dailyChallengeLookup[challengeId];
+    if (!challenge) return false;
+    return (daily.progress[challengeId] || 0) >= challenge.goal;
+  });
+  if (!done) return false;
+  daily.completedToday = true;
+  const today = daily.dateKey || dateKey();
+  const gap = dayGap(daily.lastCompletedDate, today);
+  daily.streak = gap === 1 ? daily.streak + 1 : 1;
+  daily.lastCompletedDate = today;
+  const shardReward = 8 + daily.streak * 2;
+  state.save.starShards += shardReward;
+  if (daily.streak >= 3) state.save.pompomStash += 1;
+  if (announce && state.dailyCompletionAnnouncedFor !== today) {
+    const bonus = daily.streak >= 3 ? " +1 Pom Pom bonus!" : "";
+    toast(`Daily quests complete! +${shardReward} Star Shards.${bonus}`);
+    burst(state.camoraX || canvas.clientWidth * 0.5, (state.camoraY || canvas.clientHeight * 0.76) - 80, "#ffe766", 32);
+    state.dailyCompletionAnnouncedFor = today;
+  }
+  return true;
+}
+
+function updateDailyChallenge(metric, amount = 1, mode = "add") {
+  if (state.practice) return;
+  ensureDailyChallenges();
+  const daily = state.save.daily;
+  if (daily.completedToday) return;
+  let changed = false;
+  for (const challengeId of daily.activeChallenges) {
+    const challenge = dailyChallengeLookup[challengeId];
+    if (!challenge || challenge.metric !== metric) continue;
+    const current = daily.progress[challengeId] || 0;
+    const next =
+      mode === "peak" ? Math.max(current, amount) : clamp(current + amount, 0, challenge.goal);
+    if (next !== current) {
+      daily.progress[challengeId] = clamp(next, 0, challenge.goal);
+      changed = true;
+    }
+  }
+  if (!changed) return;
+  const completed = checkDailyCompletion(true);
+  if (completed) {
+    checkBadges();
+    renderCollectibles();
+    renderBadges();
+  }
+  renderDailyChallenges();
+  storeSession();
 }
 
 function toast(message) {
@@ -260,16 +462,96 @@ function setupFloaters() {
   }));
 }
 
+function createAmbientEncounter(level = state.save.level || 1) {
+  const w = canvas.clientWidth || 960;
+  const h = canvas.clientHeight || 700;
+  const direction = Math.random() < 0.5 ? 1 : -1;
+  const animal = pick(animalRoster);
+  const layer = rand(0, 1);
+  const bigChance = clamp((level - 4) * 0.035, 0, 0.42);
+  const giantBoost = Math.random() < bigChance ? rand(1.35, 2.05) : 1;
+  const size = rand(24, 54) * (0.85 + layer * 0.65) * giantBoost;
+  const schoolCount = Math.random() < 0.42 ? Math.floor(rand(3, 8)) : 1;
+  const speed = rand(18, 48) + layer * 20 + level * 0.95;
+  const x = direction > 0 ? -size - rand(30, 240) : w + size + rand(30, 240);
+  const y = rand(h * 0.14, h * 0.68);
+  return {
+    animal,
+    direction,
+    x,
+    y,
+    size,
+    schoolCount,
+    speed,
+    alpha: clamp(0.13 + layer * 0.28, 0.12, 0.42),
+    phase: rand(0, Math.PI * 2),
+    layer
+  };
+}
+
+function setupAmbientEncounters() {
+  const target = 9;
+  state.ambientEncounters = [];
+  for (let i = 0; i < target; i += 1) {
+    state.ambientEncounters.push(createAmbientEncounter(Math.max(1, state.save.level)));
+  }
+  state.encounterTimer = rand(2.8, 5.4);
+}
+
+function updateAmbientEncounters(dt, w, h) {
+  if (!state.ambientEncounters.length) {
+    setupAmbientEncounters();
+  }
+
+  state.encounterTimer -= dt;
+  if (state.encounterTimer <= 0) {
+    state.ambientEncounters.push(createAmbientEncounter(Math.max(1, state.save.level)));
+    const cooldown = clamp(5.6 - state.save.level * 0.22, 2.1, 5.6);
+    state.encounterTimer = rand(cooldown * 0.8, cooldown * 1.2);
+  }
+
+  for (const encounter of state.ambientEncounters) {
+    encounter.x += encounter.speed * dt * encounter.direction;
+    encounter.y += Math.sin(state.time * 0.9 + encounter.phase) * dt * (8 + encounter.layer * 9);
+    if (encounter.y < h * 0.1) encounter.y = h * 0.1;
+    if (encounter.y > h * 0.72) encounter.y = h * 0.72;
+    if (
+      (encounter.direction > 0 && encounter.x - encounter.size * 2 > w + 180) ||
+      (encounter.direction < 0 && encounter.x + encounter.size * 2 < -180)
+    ) {
+      encounter.dead = true;
+    }
+  }
+
+  state.ambientEncounters = state.ambientEncounters.filter(encounter => !encounter.dead);
+  while (state.ambientEncounters.length < 7) {
+    state.ambientEncounters.push(createAmbientEncounter(Math.max(1, state.save.level)));
+  }
+}
+
+function activeUniformTheme() {
+  return uniformThemes[state.save.customization.uniformTheme] || uniformThemes.sunrise;
+}
+
+function activePomPalette() {
+  return pomThemes[state.save.customization.pomTheme] || pomThemes.classic;
+}
+
+function activeTrailPalette() {
+  return trailThemes[state.save.customization.trailTheme] || trailThemes.sparkle;
+}
+
 function updateTrail(dt) {
   state.trailTimer += dt;
   if (state.playing && state.trailTimer >= 0.03) {
+    const palette = activeTrailPalette();
     state.trailTimer = 0;
     state.trail.push({
       x: state.camoraX + rand(-5, 5),
       y: state.camoraY + 12 + rand(-2, 3),
       r: rand(8, 14),
       life: 0.55,
-      hue: Math.random() < 0.5 ? "#ffd34f" : "#64d8ff"
+      hue: pick(palette)
     });
   }
   for (const trail of state.trail) {
@@ -295,11 +577,32 @@ function loadCamoraFace() {
 function mergeSave(save) {
   const base = defaultSave();
   const settingsRaw = { ...base.settings, ...(save?.settings || {}) };
+  const customRaw = save?.customization && typeof save.customization === "object" ? save.customization : {};
+  const dailyRaw = save?.daily && typeof save.daily === "object" ? save.daily : {};
   const clampPercent = (value, fallback) => {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return fallback;
     return clamp(Math.round(parsed), 0, 100);
   };
+  const number = (value, fallback = 0, max = 99_999_999) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return clamp(Math.floor(parsed), 0, max);
+  };
+  const cleanDate = value => (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null);
+  const pickChoice = (value, choices, fallback) => (choices.includes(value) ? value : fallback);
+  const activeChallengesRaw = Array.isArray(dailyRaw.activeChallenges) ? dailyRaw.activeChallenges : [];
+  const activeChallenges = activeChallengesRaw
+    .map(item => String(item || ""))
+    .filter(id => Boolean(dailyChallengeLookup[id]))
+    .slice(0, 3);
+  const progressRaw = dailyRaw.progress && typeof dailyRaw.progress === "object" ? dailyRaw.progress : {};
+  const dailyProgress = {};
+  for (const challengeId of activeChallenges) {
+    const challenge = dailyChallengeLookup[challengeId];
+    if (!challenge) continue;
+    dailyProgress[challengeId] = clamp(number(progressRaw[challengeId], 0, challenge.goal), 0, challenge.goal);
+  }
   const legacySoundOff = save?.settings?.sound === false;
   const sfxEnabled = settingsRaw.sfxEnabled !== undefined ? Boolean(settingsRaw.sfxEnabled) : !legacySoundOff;
   const musicEnabled = settingsRaw.musicEnabled !== undefined ? Boolean(settingsRaw.musicEnabled) : !legacySoundOff;
@@ -316,6 +619,19 @@ function mergeSave(save) {
       musicEnabled,
       sfxVolume: clampPercent(settingsRaw.sfxVolume, base.settings.sfxVolume),
       musicVolume: clampPercent(settingsRaw.musicVolume, base.settings.musicVolume)
+    },
+    daily: {
+      dateKey: cleanDate(dailyRaw.dateKey),
+      streak: number(dailyRaw.streak, 0, 999),
+      completedToday: Boolean(dailyRaw.completedToday),
+      lastCompletedDate: cleanDate(dailyRaw.lastCompletedDate),
+      activeChallenges,
+      progress: dailyProgress
+    },
+    customization: {
+      uniformTheme: pickChoice(customRaw.uniformTheme, Object.keys(uniformThemes), base.customization.uniformTheme),
+      pomTheme: pickChoice(customRaw.pomTheme, Object.keys(pomThemes), base.customization.pomTheme),
+      trailTheme: pickChoice(customRaw.trailTheme, Object.keys(trailThemes), base.customization.trailTheme)
     },
     unlockedAnimals: Array.isArray(save?.unlockedAnimals) ? save.unlockedAnimals : base.unlockedAnimals,
     seaAnimalCards: Array.isArray(save?.seaAnimalCards) ? save.seaAnimalCards : [],
@@ -475,8 +791,10 @@ async function signOutPlayer() {
   state.token = null;
   state.profile = null;
   state.save = defaultSave();
+  ensureDailyChallenges();
   state.items = [];
   state.distractions = [];
+  setupAmbientEncounters();
   state.trail = [];
   state.particles = [];
   state.combo = 0;
@@ -530,6 +848,8 @@ function loadCachedSession() {
     state.token = cached.token || null;
     state.profile = cached.profile;
     state.save = mergeSave(cached.save);
+    ensureDailyChallenges();
+    setupAmbientEncounters();
     return true;
   } catch {
     return false;
@@ -540,6 +860,8 @@ function applyProfile(profile, token) {
   state.profile = profile;
   state.token = token;
   state.save = mergeSave(profile.save);
+  ensureDailyChallenges();
+  setupAmbientEncounters();
   els.authModal.classList.add("hidden");
   els.playerName.textContent = profile.displayName;
   els.reefCode.textContent = profile.reefCode;
@@ -633,6 +955,31 @@ async function refreshLeaderboard() {
   }
 }
 
+function renderChapterMap() {
+  els.chapterMap.innerHTML = "";
+  const currentLevel = state.save.level;
+  const currentChapter = chapterForLevel(currentLevel);
+  for (const chapter of chapterMeta) {
+    const node = document.createElement("div");
+    const isComplete = currentLevel > chapter.end;
+    const isCurrent = currentLevel >= chapter.start && currentLevel <= chapter.end;
+    node.className = `chapter-node ${isCurrent ? "current" : isComplete ? "complete" : "locked"}`;
+    node.innerHTML = `
+      <span class="chapter-dot" style="background:${chapter.color}"></span>
+      <span>${chapter.id}</span>
+      <strong>L${chapter.start}-${chapter.end}</strong>
+    `;
+    els.chapterMap.append(node);
+  }
+
+  const chapterSpan = Math.max(1, currentChapter.end - currentChapter.start + 1);
+  const chapterUnits =
+    clamp(currentLevel - currentChapter.start, 0, chapterSpan) +
+    clamp(state.save.xp / Math.max(1, xpForLevel(currentLevel)), 0, 1);
+  const chapterProgress = clamp((chapterUnits / chapterSpan) * 100, 0, 100);
+  els.chapterStatus.textContent = `${currentChapter.id}: ${Math.round(chapterProgress)}% complete in this chapter.`;
+}
+
 function renderMissions() {
   els.missionList.innerHTML = "";
   for (const mission of missionMeta) {
@@ -645,6 +992,42 @@ function renderMissions() {
     `;
     els.missionList.append(item);
   }
+}
+
+function renderDailyChallenges() {
+  ensureDailyChallenges();
+  const daily = state.save.daily;
+  els.dailyChallengeList.innerHTML = "";
+  els.dailyStreak.textContent = `Streak ${daily.streak}`;
+  for (const challengeId of daily.activeChallenges) {
+    const challenge = dailyChallengeLookup[challengeId];
+    if (!challenge) continue;
+    const value = clamp(daily.progress[challengeId] || 0, 0, challenge.goal);
+    const mission = document.createElement("div");
+    const complete = value >= challenge.goal;
+    mission.className = `mission${complete ? " complete" : ""}`;
+    mission.innerHTML = `
+      <div class="mission-top"><span>${challenge.label}</span><strong>${value}/${challenge.goal}</strong></div>
+      <div class="meter"><span style="width:${(value / challenge.goal) * 100}%"></span></div>
+    `;
+    els.dailyChallengeList.append(mission);
+  }
+}
+
+function renderCustomizationStudio() {
+  els.uniformSelect.value = state.save.customization.uniformTheme;
+  els.pomSelect.value = state.save.customization.pomTheme;
+  els.trailSelect.value = state.save.customization.trailTheme;
+}
+
+function updateCustomization(patch) {
+  state.save.customization = {
+    ...state.save.customization,
+    ...patch
+  };
+  state.save = mergeSave(state.save);
+  renderCustomizationStudio();
+  storeSession();
 }
 
 function renderAnimals() {
@@ -700,9 +1083,12 @@ function renderLevelPath() {
 }
 
 function renderPanels() {
+  renderChapterMap();
   renderMissions();
+  renderDailyChallenges();
   renderAnimals();
   renderCollectibles();
+  renderCustomizationStudio();
   renderBadges();
   renderLevelPath();
   els.bestText.textContent = formatNumber(state.save.highScore);
@@ -754,6 +1140,7 @@ function stopCurrentRun() {
 }
 
 function resetRound(practice = false) {
+  ensureDailyChallenges();
   state.practice = practice;
   state.gameOver = false;
   state.playing = true;
@@ -769,6 +1156,7 @@ function resetRound(practice = false) {
   state.spawnTimer = 0.35;
   state.noteTimer = 1.2;
   state.distractionTimer = rand(3.4, 6.2);
+  state.encounterTimer = rand(1.8, 4.2);
   state.trailTimer = 0;
   state.speed = 290;
   state.tideLevel = Math.max(1, state.save.level);
@@ -783,7 +1171,8 @@ function resetRound(practice = false) {
   }
   hideOverlay();
   if (!practice && state.save.level > 1) {
-    showLevelAdvance(state.save.level, "This stage is harder");
+    const chapter = chapterForLevel(state.save.level);
+    showLevelAdvance(state.save.level, `${chapter.id}: ${chapter.copy}`);
   }
   updateHud();
 }
@@ -805,6 +1194,8 @@ function moveLane(direction) {
 
 function gainXp(amount) {
   if (state.practice) return;
+  const startingLevel = state.save.level;
+  const startingChapter = chapterForLevel(startingLevel);
   state.save.xp += amount;
   let leveled = false;
   while (state.save.xp >= xpForLevel(state.save.level)) {
@@ -814,9 +1205,19 @@ function gainXp(amount) {
     leveled = true;
   }
   if (leveled) {
-    toast(`Level up! Camora reached Level ${state.save.level}.`);
-    showLevelAdvance(state.save.level, "Difficulty increased");
+    const nextChapter = chapterForLevel(state.save.level);
+    const chapterChanged = nextChapter.id !== startingChapter.id;
+    toast(
+      chapterChanged
+        ? `New chapter unlocked: ${nextChapter.id}!`
+        : `Level up! Camora reached Level ${state.save.level}.`
+    );
+    showLevelAdvance(
+      state.save.level,
+      chapterChanged ? `${nextChapter.id} unlocked!` : `${nextChapter.id} gets tougher now.`
+    );
     burst(state.camoraX, state.camoraY - 70, "#ffe766", 36);
+    renderChapterMap();
   }
 }
 
@@ -837,6 +1238,7 @@ function cheer() {
       state.save.perfectCheers += 1;
       state.save.missions.cheerChain += 1;
       gainXp(14);
+      updateDailyChallenge("perfect_cheer", 1);
       burst(item.x, item.y, "#ffd34f", 18);
       chime(640, 0.08, "triangle");
     }
@@ -847,6 +1249,7 @@ function cheer() {
     burst(state.camoraX, state.camoraY - 50, "rgba(255,255,255,0.9)", 7);
     chime(220, 0.04, "sine");
   }
+  updateDailyChallenge("combo_peak", state.combo, "peak");
   updateHud();
 }
 
@@ -903,9 +1306,10 @@ function spawnDistraction(w, h) {
   if (level < 3) return;
   const animal = pick(animalRoster);
   const direction = Math.random() < 0.5 ? 1 : -1;
-  const baseSize = clamp(92 + level * 10, 100, 220);
-  const size = rand(baseSize * 0.8, baseSize * 1.12);
-  const speed = rand(22, 44) + level * 4;
+  const baseSize = clamp(92 + level * 12, 110, 300);
+  const giantBoost = level >= 6 && Math.random() < clamp((level - 5) * 0.08, 0.1, 0.55) ? rand(1.2, 1.7) : 1;
+  const size = rand(baseSize * 0.82, baseSize * 1.16) * giantBoost;
+  const speed = rand(24, 46) + level * 4.4;
   const startX = direction > 0 ? -size - 80 : w + size + 80;
   const startY = rand(h * 0.2, h * 0.58);
   state.distractions.push({
@@ -915,7 +1319,7 @@ function spawnDistraction(w, h) {
     y: startY,
     size,
     speed,
-    alpha: rand(0.18, 0.34),
+    alpha: rand(0.19, 0.4),
     phase: rand(0, Math.PI * 2),
     dead: false
   });
@@ -1026,6 +1430,7 @@ function collect(item) {
     state.save.missions.shellSprint += 10;
     state.save.missions.treasureTrail += 1;
     gainXp(12);
+    updateDailyChallenge("sparkles", 10);
     burst(item.x, item.y, "#ffd34f", 10);
     chime(440 + Math.min(state.combo, 12) * 24, 0.035, "sine");
   }
@@ -1036,6 +1441,7 @@ function collect(item) {
     state.save.missions.animalAlly += 1;
     state.save.missions.treasureTrail += 1;
     gainXp(26);
+    updateDailyChallenge("rescues", 1);
     unlockAnimal(item.animal);
     burst(item.x, item.y, item.animal.color, 20);
     chime(720, 0.07, "triangle");
@@ -1054,6 +1460,7 @@ function collect(item) {
     state.save.coralGems += 1;
     state.save.missions.treasureTrail += 1;
     gainXp(24);
+    updateDailyChallenge("treasures", 1);
     burst(item.x, item.y, "#ff6f8a", 16);
     chime(560, 0.05, "triangle");
   }
@@ -1063,6 +1470,7 @@ function collect(item) {
     state.save.pearlCrowns += 1;
     state.save.missions.treasureTrail += 1;
     gainXp(34);
+    updateDailyChallenge("treasures", 1);
     burst(item.x, item.y, "#f7f8ff", 20);
     chime(770, 0.06, "sine");
   }
@@ -1072,6 +1480,8 @@ function collect(item) {
     state.save.pompomStash += 1;
     state.save.missions.treasureTrail += 1;
     gainXp(22);
+    updateDailyChallenge("pompoms", 1);
+    updateDailyChallenge("treasures", 1);
     burst(item.x, item.y, "#ff9ab5", 18);
     chime(690, 0.06, "square");
   }
@@ -1080,6 +1490,7 @@ function collect(item) {
     addScore(175, "SEA CARD");
     state.save.missions.treasureTrail += 2;
     gainXp(32);
+    updateDailyChallenge("treasures", 1);
     unlockSeaCard(item.animal || pick(animalRoster));
     burst(item.x, item.y, "#64d8ff", 20);
     chime(820, 0.07, "triangle");
@@ -1089,10 +1500,12 @@ function collect(item) {
     addScore(220, "STICKER");
     state.save.missions.treasureTrail += 2;
     gainXp(38);
+    updateDailyChallenge("treasures", 1);
     unlockSticker();
     burst(item.x, item.y, "#7f8bff", 22);
     chime(880, 0.08, "square");
   }
+  updateDailyChallenge("combo_peak", state.combo, "peak");
   updateHud();
 }
 
@@ -1136,11 +1549,12 @@ function endRound(reason = "complete") {
 function updateGame(dt) {
   if (state.helpOpen || state.audioOpen) return;
   updateTrail(dt);
-  if (!state.playing) return;
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
 
   state.time += dt;
+  updateAmbientEncounters(dt, w, h);
+  if (!state.playing) return;
   state.tideLevel = state.save.level + Math.floor(state.time / 34);
   state.speed = 272 + state.tideLevel * 24 + Math.min(140, state.combo * 3.5);
   state.camoraX = lerp(state.camoraX, state.targetX, 1 - Math.pow(0.001, dt));
@@ -1263,6 +1677,7 @@ function drawBackground(w, h) {
   ctx.globalAlpha = 1;
 
   drawWaterLightShafts(w, h);
+  drawAmbientEncounters();
   drawDistractions();
   drawCoralGarden(w, h);
   drawLaneMarkers(w, h);
@@ -1796,6 +2211,29 @@ function drawSeaCardCollectible(item, time) {
   ctx.restore();
 }
 
+function drawAmbientEncounters() {
+  for (const encounter of state.ambientEncounters) {
+    ctx.save();
+    ctx.translate(encounter.x, encounter.y);
+    ctx.globalAlpha = encounter.alpha;
+    if (encounter.schoolCount > 1) {
+      for (let i = 0; i < encounter.schoolCount; i += 1) {
+        const tailOffset = i * encounter.size * 0.72 * -encounter.direction;
+        const waveX = Math.sin(state.time * 2.2 + encounter.phase + i) * encounter.size * 0.12;
+        const waveY = Math.sin(state.time * 2.6 + encounter.phase * 1.4 + i * 0.9) * encounter.size * 0.14;
+        const yOffset = ((i % 2) - 0.5) * encounter.size * 0.34;
+        ctx.save();
+        ctx.translate(tailOffset + waveX, yOffset + waveY);
+        drawSeaCreature(encounter.animal, encounter.size * 0.56, state.time + encounter.phase + i * 0.24, encounter.direction);
+        ctx.restore();
+      }
+    } else {
+      drawSeaCreature(encounter.animal, encounter.size, state.time + encounter.phase, encounter.direction);
+    }
+    ctx.restore();
+  }
+}
+
 function drawDistractions() {
   for (const distraction of state.distractions) {
     ctx.save();
@@ -1894,8 +2332,17 @@ function drawCamoraPortrait(x, y, radius) {
 function drawCamora(x, y, time) {
   ctx.save();
   ctx.translate(x, y);
-  const bounce = Math.sin(time * 8) * (state.playing ? 5 : 2);
+  const moveDelta = clamp((state.targetX - state.camoraX) / 64, -1, 1);
+  const strideSpeed = state.playing ? 10.5 : 4.2;
+  const stride = Math.sin(time * strideSpeed) * (state.playing ? 1 : 0.35);
+  const bounce = Math.sin(time * 8) * (state.playing ? 4.5 : 1.8);
+  const cheerLift = clamp(state.cheerPulse, 0, 1);
+  const torsoLean = moveDelta * 0.12;
+  const uniform = activeUniformTheme();
+  const pomColors = activePomPalette();
+
   ctx.translate(0, bounce);
+  ctx.rotate(torsoLean);
 
   if (state.cheerPulse > 0) {
     ctx.globalAlpha = state.cheerPulse * 0.65;
@@ -1913,19 +2360,21 @@ function drawCamora(x, y, time) {
   ctx.strokeStyle = outline;
   ctx.lineCap = "round";
 
-  // Legs and shoes with a slim athletic stance.
+  // Legs and shoes.
   ctx.lineWidth = 10;
+  const leftStride = stride * 6;
+  const rightStride = -stride * 6;
   ctx.beginPath();
-  ctx.moveTo(-10, 44);
-  ctx.quadraticCurveTo(-12, 72, -14, 93);
-  ctx.moveTo(10, 44);
-  ctx.quadraticCurveTo(12, 72, 14, 93);
+  ctx.moveTo(-10, 43);
+  ctx.quadraticCurveTo(-16 + leftStride * 0.24, 70, -14 + leftStride, 93);
+  ctx.moveTo(10, 43);
+  ctx.quadraticCurveTo(16 + rightStride * 0.24, 70, 14 + rightStride, 93);
   ctx.stroke();
 
   ctx.fillStyle = "#fff6f8";
-  roundRect(-26, 91, 18, 11, 6);
+  roundRect(-27 + leftStride, 91, 19, 11, 6);
   ctx.fill();
-  roundRect(8, 91, 18, 11, 6);
+  roundRect(8 + rightStride, 91, 19, 11, 6);
   ctx.fill();
   ctx.strokeStyle = outline;
   ctx.lineWidth = 3;
@@ -1946,45 +2395,49 @@ function drawCamora(x, y, time) {
 
   // Torso with a shaped silhouette.
   const bodyGradient = ctx.createLinearGradient(0, -58, 0, 24);
-  bodyGradient.addColorStop(0, "#ff5e70");
-  bodyGradient.addColorStop(1, "#ffd34f");
+  bodyGradient.addColorStop(0, uniform.top);
+  bodyGradient.addColorStop(1, uniform.bottom);
   ctx.fillStyle = bodyGradient;
   ctx.beginPath();
-  ctx.moveTo(-34, -44);
-  ctx.quadraticCurveTo(-39, -10, -28, 19);
-  ctx.quadraticCurveTo(-18, 35, 0, 35);
-  ctx.quadraticCurveTo(18, 35, 28, 19);
-  ctx.quadraticCurveTo(39, -10, 34, -44);
+  ctx.moveTo(-32, -46);
+  ctx.quadraticCurveTo(-38, -8, -27, 20);
+  ctx.quadraticCurveTo(-16, 35, 0, 35);
+  ctx.quadraticCurveTo(16, 35, 27, 20);
+  ctx.quadraticCurveTo(38, -8, 32, -46);
   ctx.closePath();
   ctx.fill();
 
-  ctx.strokeStyle = "#ffffff";
+  ctx.strokeStyle = uniform.stripe;
   ctx.lineWidth = 4;
   ctx.beginPath();
   ctx.moveTo(-27, -18);
   ctx.lineTo(27, -18);
   ctx.stroke();
-  ctx.strokeStyle = "#264a85";
+  ctx.strokeStyle = uniform.accent;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(-28, -12);
   ctx.lineTo(28, -12);
   ctx.stroke();
 
-  // Arms with slimmer proportions.
+  // Arms.
+  const cheerRaise = cheerLift * 1.05;
+  const leftArmX = -52 - cheerRaise * 9;
+  const rightArmX = 52 + cheerRaise * 9;
+  const handY = 9 - cheerRaise * 30;
   ctx.strokeStyle = skinTone;
   ctx.lineWidth = 10;
   ctx.beginPath();
-  ctx.moveTo(-29, -30);
-  ctx.quadraticCurveTo(-47, -16, -56, 8);
-  ctx.moveTo(29, -30);
-  ctx.quadraticCurveTo(47, -16, 56, 8);
+  ctx.moveTo(-28, -30);
+  ctx.quadraticCurveTo(-44, -20 - cheerRaise * 6, leftArmX, handY);
+  ctx.moveTo(28, -30);
+  ctx.quadraticCurveTo(44, -20 - cheerRaise * 6, rightArmX, handY);
   ctx.stroke();
 
   ctx.fillStyle = skinTone;
   ctx.beginPath();
-  ctx.arc(-56, 8, 6, 0, Math.PI * 2);
-  ctx.arc(56, 8, 6, 0, Math.PI * 2);
+  ctx.arc(leftArmX, handY, 6, 0, Math.PI * 2);
+  ctx.arc(rightArmX, handY, 6, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.fillStyle = "#ffe8c2";
@@ -1998,20 +2451,19 @@ function drawCamora(x, y, time) {
   ctx.textBaseline = "middle";
   ctx.fillText("C", 0, 4);
 
-  drawPom(-62, 12, 22, time);
-  drawPom(62, 12, 22, time + 1.4);
+  drawPom(leftArmX - 7, handY + 3, 22, time + 0.6, pomColors);
+  drawPom(rightArmX + 7, handY + 3, 22, time + 1.9, pomColors);
   drawCamoraPortrait(0, -88, 36);
   ctx.restore();
 }
 
-function drawPom(x, y, r, time) {
+function drawPom(x, y, r, time, palette = pomThemes.classic) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(Math.sin(time * 5) * 0.35);
-  const colors = ["#ffffff", "#ffd34f", "#ff5e70", "#4ce3a0"];
   for (let i = 0; i < 18; i += 1) {
     const a = (i / 18) * Math.PI * 2;
-    ctx.strokeStyle = colors[i % colors.length];
+    ctx.strokeStyle = palette[i % palette.length];
     ctx.lineWidth = 5;
     ctx.beginPath();
     ctx.moveTo(0, 0);
@@ -2061,12 +2513,13 @@ function drawTrail() {
 
 function drawTopGameText(w) {
   ctx.save();
+  const chapter = chapterForLevel(state.save.level);
   ctx.fillStyle = "rgba(255,255,255,0.9)";
   ctx.font = "900 18px sans-serif";
   ctx.textAlign = "left";
   ctx.fillText(`Tide ${state.tideLevel}`, 24, 34);
   ctx.textAlign = "center";
-  ctx.fillText(`Level ${state.save.level}`, w * 0.5, 34);
+  ctx.fillText(`${chapter.id} | L${state.save.level}`, w * 0.5, 34);
   ctx.textAlign = "right";
   ctx.fillText(`${state.combo}x Rally`, w - 24, 34);
   ctx.restore();
@@ -2220,6 +2673,7 @@ function bindEvents() {
   window.addEventListener("resize", () => {
     resizeCanvas();
     setupFloaters();
+    setupAmbientEncounters();
   });
   window.addEventListener("keydown", keyHandler);
   canvas.addEventListener("touchstart", touchStartHandler, { passive: true });
@@ -2255,6 +2709,15 @@ function bindEvents() {
   els.musicVolume.addEventListener("input", () => {
     updateAudioSettings({ musicVolume: Number(els.musicVolume.value) || 0 });
   });
+  els.uniformSelect.addEventListener("change", () => {
+    updateCustomization({ uniformTheme: els.uniformSelect.value });
+  });
+  els.pomSelect.addEventListener("change", () => {
+    updateCustomization({ pomTheme: els.pomSelect.value });
+  });
+  els.trailSelect.addEventListener("change", () => {
+    updateCustomization({ trailTheme: els.trailSelect.value });
+  });
   els.playBtn.addEventListener("click", () => resetRound(false));
   els.practiceBtn.addEventListener("click", () => resetRound(true));
   els.stopRunBtn.addEventListener("click", stopCurrentRun);
@@ -2275,6 +2738,8 @@ function boot() {
   bindEvents();
   resizeCanvas();
   setupFloaters();
+  ensureDailyChallenges();
+  setupAmbientEncounters();
   renderPanels();
   updateHud();
   renderAudioSettings();

@@ -34,7 +34,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -252,6 +253,96 @@ p {
 .mission-list {
   display: grid;
   gap: 10px;
+}
+
+.chapter-map {
+  display: grid;
+  gap: 8px;
+}
+
+.chapter-node {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid rgba(20, 51, 87, 0.14);
+  border-radius: 12px;
+  font-size: 0.82rem;
+  font-weight: 900;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.chapter-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7);
+}
+
+.chapter-node.complete {
+  border-color: rgba(32, 178, 107, 0.45);
+  background: rgba(32, 178, 107, 0.12);
+}
+
+.chapter-node.current {
+  border-color: rgba(42, 77, 163, 0.45);
+  background: rgba(56, 200, 255, 0.14);
+}
+
+.chapter-node.locked {
+  opacity: 0.58;
+}
+
+.chapter-node strong {
+  color: #2a4da3;
+  font-size: 0.72rem;
+}
+
+.chapter-status {
+  margin-top: 10px;
+  color: rgba(23, 32, 53, 0.76);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.daily-board .mission-top strong {
+  color: #2a4da3;
+}
+
+.daily-board .mission.complete .mission-top {
+  color: #1a8f67;
+}
+
+.studio-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.studio-grid label {
+  display: grid;
+  gap: 6px;
+  color: rgba(23, 32, 53, 0.76);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.studio-grid select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid rgba(20, 51, 87, 0.16);
+  border-radius: 12px;
+  color: var(--ink);
+  font-weight: 850;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.studio-grid select:focus {
+  outline: none;
+  border-color: var(--reef);
+  box-shadow: 0 0 0 3px rgba(0, 169, 200, 0.14);
 }
 
 .mission {
@@ -927,7 +1018,9 @@ input:focus {
   }
 
   .mission-board,
-  .level-board {
+  .level-board,
+  .chapter-board,
+  .daily-board {
     grid-column: 1 / -1;
   }
 
@@ -964,7 +1057,10 @@ input:focus {
 
   .leaderboard-section,
   .mission-board,
-  .level-board {
+  .level-board,
+  .chapter-board,
+  .daily-board,
+  .studio-section {
     grid-column: 1 / -1;
   }
 

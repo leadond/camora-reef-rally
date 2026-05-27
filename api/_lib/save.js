@@ -25,6 +25,19 @@ export function defaultSave() {
       cleanReef: 0,
       treasureTrail: 0
     },
+    daily: {
+      dateKey: null,
+      streak: 0,
+      completedToday: false,
+      lastCompletedDate: null,
+      activeChallenges: [],
+      progress: {}
+    },
+    customization: {
+      uniformTheme: "sunrise",
+      pomTheme: "classic",
+      trailTheme: "sparkle"
+    },
     settings: {
       reducedMotion: false,
       sound: true,
@@ -35,6 +48,18 @@ export function defaultSave() {
     }
   };
 }
+
+const allowedDailyChallenges = new Set([
+  "sparkle_sprint",
+  "perfect_beats",
+  "rescue_rush",
+  "pompom_pop",
+  "treasure_dive",
+  "combo_builder"
+]);
+const allowedUniformThemes = new Set(["sunrise", "reef", "royal"]);
+const allowedPomThemes = new Set(["classic", "ocean", "sunset"]);
+const allowedTrailThemes = new Set(["sparkle", "starlight", "coral"]);
 
 export function safeSave(save) {
   const base = defaultSave();
@@ -56,10 +81,20 @@ export function safeSave(save) {
     if (!Number.isFinite(parsed)) return fallback;
     return Math.max(0, Math.min(100, Math.round(parsed)));
   };
+  const cleanDate = value => (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null);
+  const safeChoice = (value, allowed, fallback) => (allowed.has(value) ? value : fallback);
   const incomingSettings = incoming.settings && typeof incoming.settings === "object" ? incoming.settings : {};
+  const incomingDaily = incoming.daily && typeof incoming.daily === "object" ? incoming.daily : {};
+  const incomingCustom = incoming.customization && typeof incoming.customization === "object" ? incoming.customization : {};
   const legacySoundOff = incomingSettings.sound === false;
   const sfxEnabled = incomingSettings.sfxEnabled !== undefined ? Boolean(incomingSettings.sfxEnabled) : !legacySoundOff;
   const musicEnabled = incomingSettings.musicEnabled !== undefined ? Boolean(incomingSettings.musicEnabled) : !legacySoundOff;
+  const activeChallenges = stringArray(incomingDaily.activeChallenges, [], 3).filter(id => allowedDailyChallenges.has(id));
+  const progressSource = incomingDaily.progress && typeof incomingDaily.progress === "object" ? incomingDaily.progress : {};
+  const dailyProgress = {};
+  for (const challengeId of activeChallenges) {
+    dailyProgress[challengeId] = number(progressSource[challengeId], 0, 9999);
+  }
 
   return {
     level: number(incoming.level, 1, 999),
@@ -86,6 +121,19 @@ export function safeSave(save) {
       animalAlly: number(incoming.missions?.animalAlly),
       cleanReef: number(incoming.missions?.cleanReef),
       treasureTrail: number(incoming.missions?.treasureTrail)
+    },
+    daily: {
+      dateKey: cleanDate(incomingDaily.dateKey),
+      streak: number(incomingDaily.streak, 0, 999),
+      completedToday: Boolean(incomingDaily.completedToday),
+      lastCompletedDate: cleanDate(incomingDaily.lastCompletedDate),
+      activeChallenges,
+      progress: dailyProgress
+    },
+    customization: {
+      uniformTheme: safeChoice(incomingCustom.uniformTheme, allowedUniformThemes, base.customization.uniformTheme),
+      pomTheme: safeChoice(incomingCustom.pomTheme, allowedPomThemes, base.customization.pomTheme),
+      trailTheme: safeChoice(incomingCustom.trailTheme, allowedTrailThemes, base.customization.trailTheme)
     },
     settings: {
       reducedMotion: Boolean(incomingSettings.reducedMotion),

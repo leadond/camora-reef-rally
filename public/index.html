@@ -68,9 +68,23 @@
             <p id="xpCopy">0 / 220 XP</p>
           </div>
 
+          <div class="mini-section chapter-board">
+            <h2>Reef Map</h2>
+            <div id="chapterMap" class="chapter-map"></div>
+            <p id="chapterStatus" class="chapter-status">Coral Cove unlocked.</p>
+          </div>
+
           <div class="mission-board">
             <h2>Reef Goals</h2>
             <div id="missionList" class="mission-list"></div>
+          </div>
+
+          <div class="mission-board daily-board">
+            <div class="level-board-top">
+              <h2>Daily Quests</h2>
+              <strong id="dailyStreak">Streak 0</strong>
+            </div>
+            <div id="dailyChallengeList" class="mission-list"></div>
           </div>
         </aside>
 
@@ -109,6 +123,36 @@
           <div class="mini-section">
             <h2>Treasure Vault</h2>
             <div id="collectibleGrid" class="collectible-grid"></div>
+          </div>
+
+          <div class="mini-section studio-section">
+            <h2>Style Studio</h2>
+            <div class="studio-grid">
+              <label>
+                Uniform
+                <select id="uniformSelect">
+                  <option value="sunrise">Sunrise Squad</option>
+                  <option value="reef">Reef Rider</option>
+                  <option value="royal">Royal Wave</option>
+                </select>
+              </label>
+              <label>
+                Pom Poms
+                <select id="pomSelect">
+                  <option value="classic">Classic Pop</option>
+                  <option value="ocean">Ocean Glow</option>
+                  <option value="sunset">Sunset Burst</option>
+                </select>
+              </label>
+              <label>
+                Sparkle Trail
+                <select id="trailSelect">
+                  <option value="sparkle">Sparkle Mix</option>
+                  <option value="starlight">Starlight</option>
+                  <option value="coral">Coral Flash</option>
+                </select>
+              </label>
+            </div>
           </div>
 
           <div class="mini-section">
@@ -187,6 +231,7 @@
           <li>Collect shells, sea animals, pom poms, gems, pearls, cards, and stickers.</li>
           <li>Watch your Spirit. If it reaches zero, the run ends.</li>
           <li>Fill your XP meter to level up. Higher levels get faster and harder.</li>
+          <li>Check Daily Quests for streak rewards and Style Studio to customize Camora.</li>
           <li>Use Stop (or Esc) any time. Use Sync to save your progress.</li>
           <li>Use the music note button to control SFX and Music, and use Sign Out to switch players.</li>
         </ol>
