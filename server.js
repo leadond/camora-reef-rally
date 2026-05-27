@@ -54,7 +54,11 @@ const defaultSave = () => ({
   },
   settings: {
     reducedMotion: false,
-    sound: true
+    sound: true,
+    sfxEnabled: true,
+    musicEnabled: true,
+    sfxVolume: 70,
+    musicVolume: 55
   }
 });
 
@@ -200,6 +204,15 @@ function safeSave(save) {
       .filter(Boolean)
       .slice(0, max);
   };
+  const clampPercent = (value, fallback) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(0, Math.min(100, Math.round(parsed)));
+  };
+  const incomingSettings = incoming.settings && typeof incoming.settings === "object" ? incoming.settings : {};
+  const legacySoundOff = incomingSettings.sound === false;
+  const sfxEnabled = incomingSettings.sfxEnabled !== undefined ? Boolean(incomingSettings.sfxEnabled) : !legacySoundOff;
+  const musicEnabled = incomingSettings.musicEnabled !== undefined ? Boolean(incomingSettings.musicEnabled) : !legacySoundOff;
 
   return {
     level: number(incoming.level, 1, 999),
@@ -228,8 +241,12 @@ function safeSave(save) {
       treasureTrail: number(incoming.missions?.treasureTrail)
     },
     settings: {
-      reducedMotion: Boolean(incoming.settings?.reducedMotion),
-      sound: incoming.settings?.sound !== false
+      reducedMotion: Boolean(incomingSettings.reducedMotion),
+      sound: incomingSettings.sound !== false && (sfxEnabled || musicEnabled),
+      sfxEnabled,
+      musicEnabled,
+      sfxVolume: clampPercent(incomingSettings.sfxVolume, base.settings.sfxVolume),
+      musicVolume: clampPercent(incomingSettings.musicVolume, base.settings.musicVolume)
     }
   };
 }

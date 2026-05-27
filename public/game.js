@@ -14,8 +14,10 @@ const els = {
   loginPin: document.querySelector("#loginPin"),
   playerName: document.querySelector("#playerName"),
   reefCode: document.querySelector("#reefCode"),
+  audioSettingsBtn: document.querySelector("#audioSettingsBtn"),
   howToPlayBtn: document.querySelector("#howToPlayBtn"),
   saveNowBtn: document.querySelector("#saveNowBtn"),
+  signOutBtn: document.querySelector("#signOutBtn"),
   scoreText: document.querySelector("#scoreText"),
   comboText: document.querySelector("#comboText"),
   spiritText: document.querySelector("#spiritText"),
@@ -43,6 +45,14 @@ const els = {
   cheerBtn: document.querySelector("#cheerBtn"),
   helpModal: document.querySelector("#helpModal"),
   closeHelpBtn: document.querySelector("#closeHelpBtn"),
+  audioModal: document.querySelector("#audioModal"),
+  closeAudioBtn: document.querySelector("#closeAudioBtn"),
+  sfxToggle: document.querySelector("#sfxToggle"),
+  sfxVolume: document.querySelector("#sfxVolume"),
+  sfxVolumeValue: document.querySelector("#sfxVolumeValue"),
+  musicToggle: document.querySelector("#musicToggle"),
+  musicVolume: document.querySelector("#musicVolume"),
+  musicVolumeValue: document.querySelector("#musicVolumeValue"),
   toast: document.querySelector("#toast")
 };
 
@@ -98,6 +108,21 @@ const missionMeta = [
   { id: "treasureTrail", label: "Treasure Vault", goal: 60 }
 ];
 
+const musicPattern = [
+  { freq: 392, type: "triangle", gain: 0.27, duration: 0.24 },
+  { freq: 440, type: "triangle", gain: 0.24, duration: 0.24 },
+  { freq: 523.25, type: "triangle", gain: 0.26, duration: 0.3 },
+  { rest: true },
+  { freq: 523.25, type: "triangle", gain: 0.27, duration: 0.22 },
+  { freq: 587.33, type: "triangle", gain: 0.24, duration: 0.22 },
+  { freq: 659.25, type: "triangle", gain: 0.25, duration: 0.3 },
+  { rest: true },
+  { freq: 659.25, type: "sine", gain: 0.18, duration: 0.22 },
+  { freq: 587.33, type: "sine", gain: 0.16, duration: 0.22 },
+  { freq: 523.25, type: "sine", gain: 0.19, duration: 0.28 },
+  { rest: true }
+];
+
 const defaultSave = () => ({
   level: 1,
   xp: 0,
@@ -126,7 +151,11 @@ const defaultSave = () => ({
   },
   settings: {
     reducedMotion: false,
-    sound: true
+    sound: true,
+    sfxEnabled: true,
+    musicEnabled: true,
+    sfxVolume: 70,
+    musicVolume: 55
   }
 });
 
@@ -163,8 +192,15 @@ const state = {
   levelBannerTimer: 0,
   screenShake: 0,
   helpOpen: false,
+  audioOpen: false,
   pendingSave: false,
-  audio: null,
+  audioContext: null,
+  sfxGain: null,
+  musicGain: null,
+  masterGain: null,
+  musicLoopTimer: null,
+  nextMusicNoteAt: 0,
+  musicStep: 0,
   camoraFace: null,
   camoraFaceLoaded: false
 };
@@ -258,13 +294,29 @@ function loadCamoraFace() {
 
 function mergeSave(save) {
   const base = defaultSave();
+  const settingsRaw = { ...base.settings, ...(save?.settings || {}) };
+  const clampPercent = (value, fallback) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return clamp(Math.round(parsed), 0, 100);
+  };
+  const legacySoundOff = save?.settings?.sound === false;
+  const sfxEnabled = settingsRaw.sfxEnabled !== undefined ? Boolean(settingsRaw.sfxEnabled) : !legacySoundOff;
+  const musicEnabled = settingsRaw.musicEnabled !== undefined ? Boolean(settingsRaw.musicEnabled) : !legacySoundOff;
   const merged = {
     ...base,
     ...save,
     level: clamp(Number(save?.level || base.level), 1, 999),
     xp: clamp(Number(save?.xp || base.xp), 0, 999999),
     missions: { ...base.missions, ...(save?.missions || {}) },
-    settings: { ...base.settings, ...(save?.settings || {}) },
+    settings: {
+      reducedMotion: Boolean(settingsRaw.reducedMotion),
+      sound: settingsRaw.sound !== false && (sfxEnabled || musicEnabled),
+      sfxEnabled,
+      musicEnabled,
+      sfxVolume: clampPercent(settingsRaw.sfxVolume, base.settings.sfxVolume),
+      musicVolume: clampPercent(settingsRaw.musicVolume, base.settings.musicVolume)
+    },
     unlockedAnimals: Array.isArray(save?.unlockedAnimals) ? save.unlockedAnimals : base.unlockedAnimals,
     seaAnimalCards: Array.isArray(save?.seaAnimalCards) ? save.seaAnimalCards : [],
     stickerBook: Array.isArray(save?.stickerBook) ? save.stickerBook : [],
@@ -272,6 +324,178 @@ function mergeSave(save) {
     labFacts: Array.isArray(save?.labFacts) ? save.labFacts : []
   };
   return merged;
+}
+
+function clearSession() {
+  localStorage.removeItem("camoraReefSession");
+}
+
+function volumePercentToGain(percent) {
+  const normalized = clamp(Number(percent) || 0, 0, 100) / 100;
+  return normalized * normalized;
+}
+
+function ensureAudioSystem() {
+  try {
+    if (!state.audioContext) {
+      const AudioCtor = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtor) return null;
+      const context = new AudioCtor();
+      const masterGain = context.createGain();
+      const sfxGain = context.createGain();
+      const musicGain = context.createGain();
+      sfxGain.connect(masterGain);
+      musicGain.connect(masterGain);
+      masterGain.connect(context.destination);
+      state.audioContext = context;
+      state.masterGain = masterGain;
+      state.sfxGain = sfxGain;
+      state.musicGain = musicGain;
+    }
+    if (state.audioContext.state === "suspended") {
+      state.audioContext.resume().catch(() => {});
+    }
+    return state.audioContext;
+  } catch {
+    return null;
+  }
+}
+
+function stopMusicLoop() {
+  if (state.musicLoopTimer) {
+    clearInterval(state.musicLoopTimer);
+    state.musicLoopTimer = null;
+  }
+}
+
+function queueMusicNote(context, at, step) {
+  const note = musicPattern[step % musicPattern.length];
+  if (!note || note.rest) return;
+  const osc = context.createOscillator();
+  const gain = context.createGain();
+  osc.type = note.type || "triangle";
+  osc.frequency.setValueAtTime(note.freq || 440, at);
+  gain.gain.setValueAtTime(0.0001, at);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, note.gain || 0.2), at + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, at + (note.duration || 0.25));
+  osc.connect(gain).connect(state.musicGain);
+  osc.start(at);
+  osc.stop(at + (note.duration || 0.25) + 0.02);
+}
+
+function scheduleMusicLookahead() {
+  const context = state.audioContext;
+  if (!context || !state.save.settings.musicEnabled || !state.musicGain) return;
+  const horizon = context.currentTime + 0.8;
+  while (state.nextMusicNoteAt < horizon) {
+    queueMusicNote(context, state.nextMusicNoteAt, state.musicStep);
+    state.musicStep = (state.musicStep + 1) % musicPattern.length;
+    state.nextMusicNoteAt += 0.32;
+  }
+}
+
+function startMusicLoop() {
+  const context = ensureAudioSystem();
+  if (!context || !state.save.settings.musicEnabled) return;
+  if (state.musicLoopTimer) return;
+  state.nextMusicNoteAt = context.currentTime + 0.05;
+  state.musicStep = 0;
+  scheduleMusicLookahead();
+  state.musicLoopTimer = setInterval(scheduleMusicLookahead, 120);
+}
+
+function applyAudioMix() {
+  const context = state.audioContext;
+  if (!context || !state.sfxGain || !state.musicGain || !state.masterGain) return;
+  const sfxGain = state.save.settings.sfxEnabled ? volumePercentToGain(state.save.settings.sfxVolume) : 0;
+  const musicGain = state.save.settings.musicEnabled ? volumePercentToGain(state.save.settings.musicVolume) * 0.55 : 0;
+  state.masterGain.gain.setTargetAtTime(1, context.currentTime, 0.03);
+  state.sfxGain.gain.setTargetAtTime(sfxGain, context.currentTime, 0.03);
+  state.musicGain.gain.setTargetAtTime(musicGain, context.currentTime, 0.06);
+  if (state.save.settings.musicEnabled) startMusicLoop();
+  else stopMusicLoop();
+}
+
+function renderAudioSettings() {
+  const settings = state.save.settings;
+  els.sfxToggle.checked = settings.sfxEnabled;
+  els.musicToggle.checked = settings.musicEnabled;
+  els.sfxVolume.value = String(settings.sfxVolume);
+  els.musicVolume.value = String(settings.musicVolume);
+  els.sfxVolumeValue.textContent = `${settings.sfxVolume}%`;
+  els.musicVolumeValue.textContent = `${settings.musicVolume}%`;
+  els.sfxVolume.disabled = !settings.sfxEnabled;
+  els.musicVolume.disabled = !settings.musicEnabled;
+}
+
+function updateAudioSettings(patch = {}) {
+  state.save.settings = mergeSave({
+    settings: {
+      ...state.save.settings,
+      ...patch
+    }
+  }).settings;
+  state.save.settings.sound = state.save.settings.sfxEnabled || state.save.settings.musicEnabled;
+  renderAudioSettings();
+  ensureAudioSystem();
+  applyAudioMix();
+  storeSession();
+}
+
+function openAudioSettings() {
+  if (state.audioOpen) return;
+  closeHelp();
+  state.audioOpen = true;
+  renderAudioSettings();
+  els.audioModal.classList.remove("hidden");
+}
+
+function closeAudioSettings() {
+  state.audioOpen = false;
+  els.audioModal.classList.add("hidden");
+}
+
+async function signOutPlayer() {
+  if (!state.profile) {
+    toast("No active player is signed in.");
+    return;
+  }
+  if (state.pendingSave) {
+    toast("Syncing progress. Try sign out again in a second.");
+    return;
+  }
+  if (state.profile && state.token) {
+    await syncSave(false);
+  }
+  closeHelp();
+  closeAudioSettings();
+  stopMusicLoop();
+  state.playing = false;
+  state.gameOver = false;
+  state.token = null;
+  state.profile = null;
+  state.save = defaultSave();
+  state.items = [];
+  state.distractions = [];
+  state.trail = [];
+  state.particles = [];
+  state.combo = 0;
+  state.score = 0;
+  state.spirit = 3;
+  state.time = 0;
+  els.playerName.textContent = "Guest";
+  els.reefCode.textContent = "No Reef Code";
+  clearSession();
+  renderPanels();
+  updateHud();
+  renderAudioSettings();
+  applyAudioMix();
+  switchAuth("create");
+  els.createForm.reset();
+  els.loginForm.reset();
+  els.authModal.classList.remove("hidden");
+  showReady("Ready?", "Create a Reef Code to start saving progress.");
+  toast("Signed out. Another player can sign in.");
 }
 
 async function api(path, payload) {
@@ -319,6 +543,9 @@ function applyProfile(profile, token) {
   els.authModal.classList.add("hidden");
   els.playerName.textContent = profile.displayName;
   els.reefCode.textContent = profile.reefCode;
+  renderAudioSettings();
+  ensureAudioSystem();
+  applyAudioMix();
   storeSession();
   renderPanels();
   refreshLeaderboard();
@@ -499,6 +726,7 @@ function hideOverlay() {
 
 function openHelp() {
   if (state.helpOpen) return;
+  closeAudioSettings();
   state.helpOpen = true;
   els.helpModal.classList.remove("hidden");
 }
@@ -906,7 +1134,7 @@ function endRound(reason = "complete") {
 }
 
 function updateGame(dt) {
-  if (state.helpOpen) return;
+  if (state.helpOpen || state.audioOpen) return;
   updateTrail(dt);
   if (!state.playing) return;
   const w = canvas.clientWidth;
@@ -1881,24 +2109,25 @@ function loop(now) {
 }
 
 function chime(freq, duration, type = "sine") {
-  if (state.save.settings.sound === false) return;
+  if (!state.save.settings.sfxEnabled) return;
   try {
-    if (!state.audio) {
-      state.audio = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    const ctxAudio = state.audio;
+    const ctxAudio = ensureAudioSystem();
+    if (!ctxAudio || !state.sfxGain) return;
     const osc = ctxAudio.createOscillator();
     const gain = ctxAudio.createGain();
     osc.type = type;
     osc.frequency.value = freq;
     gain.gain.setValueAtTime(0.0001, ctxAudio.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.045, ctxAudio.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.05, ctxAudio.currentTime + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, ctxAudio.currentTime + duration);
-    osc.connect(gain).connect(ctxAudio.destination);
+    osc.connect(gain).connect(state.sfxGain);
     osc.start();
     osc.stop(ctxAudio.currentTime + duration + 0.02);
   } catch {
+    state.save.settings.sfxEnabled = false;
+    state.save.settings.musicEnabled = false;
     state.save.settings.sound = false;
+    stopMusicLoop();
   }
 }
 
@@ -1919,8 +2148,20 @@ function keyHandler(event) {
     }
     return;
   }
+  if (state.audioOpen) {
+    if (event.key === "Escape" || key === "m") {
+      event.preventDefault();
+      closeAudioSettings();
+    }
+    return;
+  }
   // Let players type normally in forms without triggering gameplay hotkeys.
   if (isTypingTarget(event.target)) {
+    return;
+  }
+  if (key === "m") {
+    event.preventDefault();
+    openAudioSettings();
     return;
   }
   if (key === "h") {
@@ -1956,13 +2197,13 @@ function keyHandler(event) {
 
 let touchStart = null;
 function touchStartHandler(event) {
-  if (state.helpOpen) return;
+  if (state.helpOpen || state.audioOpen) return;
   const touch = event.changedTouches[0];
   touchStart = { x: touch.clientX, y: touch.clientY };
 }
 
 function touchEndHandler(event) {
-  if (state.helpOpen) return;
+  if (state.helpOpen || state.audioOpen) return;
   if (!touchStart) return;
   const touch = event.changedTouches[0];
   const dx = touch.clientX - touchStart.x;
@@ -1987,10 +2228,32 @@ function bindEvents() {
   els.leftBtn.addEventListener("click", () => moveLane(-1));
   els.rightBtn.addEventListener("click", () => moveLane(1));
   els.cheerBtn.addEventListener("click", cheer);
+  els.audioSettingsBtn.addEventListener("click", () => {
+    ensureAudioSystem();
+    openAudioSettings();
+  });
   els.howToPlayBtn.addEventListener("click", openHelp);
+  els.signOutBtn.addEventListener("click", signOutPlayer);
   els.closeHelpBtn.addEventListener("click", closeHelp);
   els.helpModal.addEventListener("click", event => {
     if (event.target === els.helpModal) closeHelp();
+  });
+  els.closeAudioBtn.addEventListener("click", closeAudioSettings);
+  els.audioModal.addEventListener("click", event => {
+    if (event.target === els.audioModal) closeAudioSettings();
+  });
+  els.sfxToggle.addEventListener("change", () => {
+    updateAudioSettings({ sfxEnabled: els.sfxToggle.checked });
+    chime(620, 0.06, "triangle");
+  });
+  els.musicToggle.addEventListener("change", () => {
+    updateAudioSettings({ musicEnabled: els.musicToggle.checked });
+  });
+  els.sfxVolume.addEventListener("input", () => {
+    updateAudioSettings({ sfxVolume: Number(els.sfxVolume.value) || 0 });
+  });
+  els.musicVolume.addEventListener("input", () => {
+    updateAudioSettings({ musicVolume: Number(els.musicVolume.value) || 0 });
   });
   els.playBtn.addEventListener("click", () => resetRound(false));
   els.practiceBtn.addEventListener("click", () => resetRound(true));
@@ -2014,10 +2277,12 @@ function boot() {
   setupFloaters();
   renderPanels();
   updateHud();
+  renderAudioSettings();
   if (loadCachedSession()) {
     els.authModal.classList.add("hidden");
     els.playerName.textContent = state.profile.displayName;
     els.reefCode.textContent = state.profile.reefCode;
+    renderAudioSettings();
     renderPanels();
     refreshLeaderboard();
     showReady("Welcome Back", "Your reef squad progress is loaded here.");

@@ -618,6 +618,122 @@ canvas {
   margin-top: 6px;
 }
 
+.audio-modal {
+  position: fixed;
+  z-index: 27;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background:
+    linear-gradient(rgba(7, 31, 55, 0.48), rgba(7, 31, 55, 0.62)),
+    radial-gradient(circle at 72% 12%, rgba(181, 86, 241, 0.36), transparent 22rem);
+}
+
+.audio-modal.hidden {
+  display: none;
+}
+
+.audio-panel {
+  width: min(580px, 100%);
+  max-height: min(88vh, 720px);
+  overflow: auto;
+  padding: clamp(18px, 3.5vw, 26px);
+  border: 2px solid rgba(255, 255, 255, 0.76);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.24);
+}
+
+.audio-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.audio-head h2 {
+  font-size: clamp(1.7rem, 3.6vw, 2.4rem);
+  line-height: 0.96;
+}
+
+.audio-subtitle {
+  margin-top: 8px;
+  color: rgba(23, 32, 53, 0.72);
+  font-weight: 850;
+}
+
+.audio-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.audio-control {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(20, 51, 87, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.audio-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.audio-label-row > label {
+  display: inline-flex;
+  margin: 0;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 950;
+}
+
+.audio-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: rgba(23, 32, 53, 0.76);
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.audio-switch input {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.audio-slider-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.audio-slider-row input[type="range"] {
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.audio-slider-row strong {
+  min-width: 48px;
+  text-align: right;
+  color: #2a4da3;
+  font-size: 0.88rem;
+}
+
 .auth-panel {
   display: grid;
   width: min(940px, 100%);
