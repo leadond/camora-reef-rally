@@ -320,6 +320,10 @@ p {
   gap: 10px;
 }
 
+.settings-studio-grid {
+  margin-top: 10px;
+}
+
 .studio-grid label {
   display: grid;
   gap: 6px;
@@ -726,7 +730,7 @@ canvas {
 }
 
 .audio-panel {
-  width: min(580px, 100%);
+  width: min(640px, 100%);
   max-height: min(88vh, 720px);
   overflow: auto;
   padding: clamp(18px, 3.5vw, 26px);
@@ -758,6 +762,14 @@ canvas {
   display: grid;
   gap: 12px;
   margin-top: 14px;
+}
+
+.settings-block-title {
+  margin-top: 14px;
+  color: var(--ink);
+  font-size: 0.92rem;
+  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 .audio-control {

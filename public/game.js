@@ -60,6 +60,7 @@ const els = {
   musicToggle: document.querySelector("#musicToggle"),
   musicVolume: document.querySelector("#musicVolume"),
   musicVolumeValue: document.querySelector("#musicVolumeValue"),
+  reducedMotionToggle: document.querySelector("#reducedMotionToggle"),
   toast: document.querySelector("#toast")
 };
 
@@ -543,14 +544,15 @@ function activeTrailPalette() {
 
 function updateTrail(dt) {
   state.trailTimer += dt;
-  if (state.playing && state.trailTimer >= 0.03) {
+  const trailRate = state.save.settings.reducedMotion ? 0.07 : 0.03;
+  if (state.playing && state.trailTimer >= trailRate) {
     const palette = activeTrailPalette();
     state.trailTimer = 0;
     state.trail.push({
       x: state.camoraX + rand(-5, 5),
       y: state.camoraY + 12 + rand(-2, 3),
-      r: rand(8, 14),
-      life: 0.55,
+      r: state.save.settings.reducedMotion ? rand(6, 10) : rand(8, 14),
+      life: state.save.settings.reducedMotion ? 0.4 : 0.55,
       hue: pick(palette)
     });
   }
@@ -740,6 +742,7 @@ function renderAudioSettings() {
   els.musicVolume.value = String(settings.musicVolume);
   els.sfxVolumeValue.textContent = `${settings.sfxVolume}%`;
   els.musicVolumeValue.textContent = `${settings.musicVolume}%`;
+  els.reducedMotionToggle.checked = Boolean(settings.reducedMotion);
   els.sfxVolume.disabled = !settings.sfxEnabled;
   els.musicVolume.disabled = !settings.musicEnabled;
 }
@@ -2708,6 +2711,13 @@ function bindEvents() {
   });
   els.musicVolume.addEventListener("input", () => {
     updateAudioSettings({ musicVolume: Number(els.musicVolume.value) || 0 });
+  });
+  els.reducedMotionToggle.addEventListener("change", () => {
+    updateAudioSettings({ reducedMotion: els.reducedMotionToggle.checked });
+    if (els.reducedMotionToggle.checked) {
+      state.screenShake = 0;
+      state.cheerPulse = 0;
+    }
   });
   els.uniformSelect.addEventListener("change", () => {
     updateCustomization({ uniformTheme: els.uniformSelect.value });

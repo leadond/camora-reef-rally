@@ -21,8 +21,8 @@
         <div class="player-strip">
           <span id="playerName">Guest</span>
           <span id="reefCode">No Reef Code</span>
-          <button id="audioSettingsBtn" class="icon-button" type="button" title="Audio settings" aria-label="Audio settings">
-            <span aria-hidden="true">&#9835;</span>
+          <button id="audioSettingsBtn" class="icon-button" type="button" title="Settings" aria-label="Settings">
+            <span aria-hidden="true">&#9881;</span>
           </button>
           <button id="howToPlayBtn" class="icon-button" type="button" title="How to play" aria-label="How to play">
             <span aria-hidden="true">?</span>
@@ -125,36 +125,6 @@
             <div id="collectibleGrid" class="collectible-grid"></div>
           </div>
 
-          <div class="mini-section studio-section">
-            <h2>Style Studio</h2>
-            <div class="studio-grid">
-              <label>
-                Uniform
-                <select id="uniformSelect">
-                  <option value="sunrise">Sunrise Squad</option>
-                  <option value="reef">Reef Rider</option>
-                  <option value="royal">Royal Wave</option>
-                </select>
-              </label>
-              <label>
-                Pom Poms
-                <select id="pomSelect">
-                  <option value="classic">Classic Pop</option>
-                  <option value="ocean">Ocean Glow</option>
-                  <option value="sunset">Sunset Burst</option>
-                </select>
-              </label>
-              <label>
-                Sparkle Trail
-                <select id="trailSelect">
-                  <option value="sparkle">Sparkle Mix</option>
-                  <option value="starlight">Starlight</option>
-                  <option value="coral">Coral Flash</option>
-                </select>
-              </label>
-            </div>
-          </div>
-
           <div class="mini-section">
             <h2>Badges</h2>
             <div id="badgeList" class="badge-list"></div>
@@ -231,9 +201,9 @@
           <li>Collect shells, sea animals, pom poms, gems, pearls, cards, and stickers.</li>
           <li>Watch your Spirit. If it reaches zero, the run ends.</li>
           <li>Fill your XP meter to level up. Higher levels get faster and harder.</li>
-          <li>Check Daily Quests for streak rewards and Style Studio to customize Camora.</li>
+          <li>Open Settings for sound, style studio, and motion controls.</li>
           <li>Use Stop (or Esc) any time. Use Sync to save your progress.</li>
-          <li>Use the music note button to control SFX and Music, and use Sign Out to switch players.</li>
+          <li>Use Sign Out to switch players.</li>
         </ol>
         <div class="help-controls">
           <h3>Controls</h3>
@@ -246,10 +216,12 @@
     <section id="audioModal" class="audio-modal hidden" aria-labelledby="audioTitle" role="dialog" aria-modal="true">
       <div class="audio-panel">
         <div class="audio-head">
-          <h2 id="audioTitle">Sound Settings</h2>
-          <button id="closeAudioBtn" class="help-close-btn" type="button" aria-label="Close sound settings">X</button>
+          <h2 id="audioTitle">Settings</h2>
+          <button id="closeAudioBtn" class="help-close-btn" type="button" aria-label="Close settings">X</button>
         </div>
-        <p class="audio-subtitle">Choose your sound mix.</p>
+        <p class="audio-subtitle">Control sound, style, and comfort.</p>
+
+        <h3 class="settings-block-title">Audio</h3>
         <div class="audio-grid">
           <div class="audio-control">
             <div class="audio-label-row">
@@ -278,6 +250,44 @@
               <strong id="musicVolumeValue">55%</strong>
             </div>
           </div>
+
+          <div class="audio-control">
+            <div class="audio-label-row">
+              <label for="reducedMotionToggle">Reduced Motion</label>
+              <label class="audio-switch">
+                <input id="reducedMotionToggle" type="checkbox" />
+                <span>Comfort mode</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <h3 class="settings-block-title">Style Studio</h3>
+        <div class="studio-grid settings-studio-grid">
+          <label>
+            Uniform
+            <select id="uniformSelect">
+              <option value="sunrise">Sunrise Squad</option>
+              <option value="reef">Reef Rider</option>
+              <option value="royal">Royal Wave</option>
+            </select>
+          </label>
+          <label>
+            Pom Poms
+            <select id="pomSelect">
+              <option value="classic">Classic Pop</option>
+              <option value="ocean">Ocean Glow</option>
+              <option value="sunset">Sunset Burst</option>
+            </select>
+          </label>
+          <label>
+            Sparkle Trail
+            <select id="trailSelect">
+              <option value="sparkle">Sparkle Mix</option>
+              <option value="starlight">Starlight</option>
+              <option value="coral">Coral Flash</option>
+            </select>
+          </label>
         </div>
       </div>
     </section>
