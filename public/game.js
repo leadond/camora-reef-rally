@@ -14,6 +14,7 @@ const els = {
   loginPin: document.querySelector("#loginPin"),
   playerName: document.querySelector("#playerName"),
   reefCode: document.querySelector("#reefCode"),
+  howToPlayBtn: document.querySelector("#howToPlayBtn"),
   saveNowBtn: document.querySelector("#saveNowBtn"),
   scoreText: document.querySelector("#scoreText"),
   comboText: document.querySelector("#comboText"),
@@ -40,6 +41,8 @@ const els = {
   leftBtn: document.querySelector("#leftBtn"),
   rightBtn: document.querySelector("#rightBtn"),
   cheerBtn: document.querySelector("#cheerBtn"),
+  helpModal: document.querySelector("#helpModal"),
+  closeHelpBtn: document.querySelector("#closeHelpBtn"),
   toast: document.querySelector("#toast")
 };
 
@@ -159,6 +162,7 @@ const state = {
   levelPulse: 0,
   levelBannerTimer: 0,
   screenShake: 0,
+  helpOpen: false,
   pendingSave: false,
   audio: null,
   camoraFace: null,
@@ -491,6 +495,18 @@ function showReady(title, copy) {
 function hideOverlay() {
   els.pauseOverlay.classList.add("hidden");
   if (els.stopRunBtn) els.stopRunBtn.disabled = false;
+}
+
+function openHelp() {
+  if (state.helpOpen) return;
+  state.helpOpen = true;
+  els.helpModal.classList.remove("hidden");
+}
+
+function closeHelp() {
+  if (!state.helpOpen) return;
+  state.helpOpen = false;
+  els.helpModal.classList.add("hidden");
 }
 
 function showLevelAdvance(level, copy = "Speed and distractions increased") {
@@ -889,6 +905,7 @@ function endRound(reason = "complete") {
 }
 
 function updateGame(dt) {
+  if (state.helpOpen) return;
   updateTrail(dt);
   if (!state.playing) return;
   const w = canvas.clientWidth;
@@ -1632,6 +1649,19 @@ function chime(freq, duration, type = "sine") {
 }
 
 function keyHandler(event) {
+  const key = event.key.toLowerCase();
+  if (state.helpOpen) {
+    if (event.key === "Escape" || key === "h") {
+      event.preventDefault();
+      closeHelp();
+    }
+    return;
+  }
+  if (key === "h") {
+    event.preventDefault();
+    openHelp();
+    return;
+  }
   if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") {
     event.preventDefault();
     moveLane(-1);
@@ -1648,7 +1678,7 @@ function keyHandler(event) {
       cheer();
     }
   }
-  if (event.key.toLowerCase() === "p") {
+  if (key === "p") {
     if (state.playing) showReady("Paused", "The reef is holding your place.");
     else if (els.authModal.classList.contains("hidden")) resetRound(state.practice);
   }
@@ -1660,11 +1690,13 @@ function keyHandler(event) {
 
 let touchStart = null;
 function touchStartHandler(event) {
+  if (state.helpOpen) return;
   const touch = event.changedTouches[0];
   touchStart = { x: touch.clientX, y: touch.clientY };
 }
 
 function touchEndHandler(event) {
+  if (state.helpOpen) return;
   if (!touchStart) return;
   const touch = event.changedTouches[0];
   const dx = touch.clientX - touchStart.x;
@@ -1689,6 +1721,11 @@ function bindEvents() {
   els.leftBtn.addEventListener("click", () => moveLane(-1));
   els.rightBtn.addEventListener("click", () => moveLane(1));
   els.cheerBtn.addEventListener("click", cheer);
+  els.howToPlayBtn.addEventListener("click", openHelp);
+  els.closeHelpBtn.addEventListener("click", closeHelp);
+  els.helpModal.addEventListener("click", event => {
+    if (event.target === els.helpModal) closeHelp();
+  });
   els.playBtn.addEventListener("click", () => resetRound(false));
   els.practiceBtn.addEventListener("click", () => resetRound(true));
   els.stopRunBtn.addEventListener("click", stopCurrentRun);

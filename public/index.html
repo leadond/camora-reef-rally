@@ -21,6 +21,9 @@
         <div class="player-strip">
           <span id="playerName">Guest</span>
           <span id="reefCode">No Reef Code</span>
+          <button id="howToPlayBtn" class="icon-button" type="button" title="How to play" aria-label="How to play">
+            <span aria-hidden="true">?</span>
+          </button>
           <button id="saveNowBtn" class="icon-button" type="button" title="Sync progress" aria-label="Sync progress">
             <span aria-hidden="true">&#8635;</span>
           </button>
@@ -159,6 +162,31 @@
           </form>
 
           <p id="authMessage" class="auth-message" role="status"></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="helpModal" class="help-modal hidden" aria-labelledby="helpTitle" role="dialog" aria-modal="true">
+      <div class="help-panel">
+        <div class="help-head">
+          <h2 id="helpTitle">How To Play</h2>
+          <button id="closeHelpBtn" class="help-close-btn" type="button" aria-label="Close help">X</button>
+        </div>
+        <p class="help-subtitle">Quick guide for Camora's Reef Rally</p>
+        <ol class="help-steps">
+          <li>Create your player name and PIN, then keep your Reef Code safe.</li>
+          <li>Press Play for a real run, or Practice to train without losing Spirit.</li>
+          <li>Move left and right to catch good items and dodge red obstacles.</li>
+          <li>Hit Cheer when GO notes are close to score PERFECT cheers.</li>
+          <li>Collect shells, sea animals, pom poms, gems, pearls, cards, and stickers.</li>
+          <li>Watch your Spirit. If it reaches zero, the run ends.</li>
+          <li>Fill your XP meter to level up. Higher levels get faster and harder.</li>
+          <li>Use Stop (or Esc) any time. Use Sync to save your progress.</li>
+        </ol>
+        <div class="help-controls">
+          <h3>Controls</h3>
+          <p><strong>Keyboard:</strong> Left/Right or A/D to move, Space/Up/W to cheer, Esc to stop.</p>
+          <p><strong>Touch:</strong> Swipe left/right (or tap arrows), tap * to cheer.</p>
         </div>
       </div>
     </section>
