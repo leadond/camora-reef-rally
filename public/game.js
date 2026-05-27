@@ -754,6 +754,7 @@ function spawnItem(kind = null) {
     r: type === "obstacle" ? 34 : 30,
     wobble: rand(0, Math.PI * 2),
     spin: rand(-2, 2),
+    facing: Math.random() < 0.5 ? -1 : 1,
     animal: type === "animal" || type === "seaCard" ? pick(animalRoster) : null,
     hit: false,
     dead: false
@@ -1277,6 +1278,274 @@ function drawPompomCollectible(x, y, r, time) {
   ctx.restore();
 }
 
+function drawSeaEye(x, y, size) {
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(x, y, size, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#102746";
+  ctx.beginPath();
+  ctx.arc(x + size * 0.24, y, size * 0.46, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawSeaTurtle(animal, size, time) {
+  const flap = Math.sin(time * 6) * 0.2;
+  const shellW = size * 0.52;
+  const shellH = size * 0.34;
+
+  ctx.save();
+  ctx.rotate(Math.sin(time * 2.2) * 0.08);
+  ctx.fillStyle = "#69ddb2";
+  ctx.beginPath();
+  ctx.ellipse(-shellW * 0.36, -shellH * 0.84, shellW * 0.22, shellH * 0.44, -0.9 + flap, 0, Math.PI * 2);
+  ctx.ellipse(-shellW * 0.36, shellH * 0.84, shellW * 0.22, shellH * 0.44, 0.9 - flap, 0, Math.PI * 2);
+  ctx.ellipse(shellW * 0.2, -shellH * 0.98, shellW * 0.2, shellH * 0.38, -0.45 - flap * 0.5, 0, Math.PI * 2);
+  ctx.ellipse(shellW * 0.2, shellH * 0.98, shellW * 0.2, shellH * 0.38, 0.45 + flap * 0.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = animal.color;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, shellW, shellH, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.18)";
+  for (let i = 0; i < 4; i += 1) {
+    const x = -shellW * 0.25 + i * shellW * 0.18;
+    ctx.beginPath();
+    ctx.arc(x, -shellH * 0.08 + Math.sin(i) * shellH * 0.14, shellH * 0.18, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = "#6fdcb7";
+  ctx.beginPath();
+  ctx.arc(shellW * 0.9, -shellH * 0.04, shellH * 0.42, 0, Math.PI * 2);
+  ctx.fill();
+  drawSeaEye(shellW * 1.02, -shellH * 0.13, shellH * 0.13);
+
+  ctx.fillStyle = "#3ea27d";
+  ctx.beginPath();
+  ctx.moveTo(-shellW * 1.1, 0);
+  ctx.lineTo(-shellW * 1.35, -shellH * 0.18);
+  ctx.lineTo(-shellW * 1.35, shellH * 0.18);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawDolphin(animal, size, time) {
+  const tailSwing = Math.sin(time * 7.2) * size * 0.08;
+  ctx.save();
+  ctx.rotate(Math.sin(time * 1.7) * 0.05);
+
+  ctx.fillStyle = animal.color;
+  ctx.beginPath();
+  ctx.moveTo(-size * 0.58, 0);
+  ctx.quadraticCurveTo(-size * 0.12, -size * 0.48, size * 0.58, -size * 0.06);
+  ctx.quadraticCurveTo(size * 0.72, 0, size * 0.58, size * 0.12);
+  ctx.quadraticCurveTo(size * 0.04, size * 0.36, -size * 0.58, size * 0.06);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "#7fe0ff";
+  ctx.beginPath();
+  ctx.moveTo(-size * 0.18, size * 0.07);
+  ctx.quadraticCurveTo(size * 0.32, size * 0.24, size * 0.56, size * 0.04);
+  ctx.quadraticCurveTo(size * 0.18, size * 0.29, -size * 0.2, size * 0.12);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "#3ea8d8";
+  ctx.beginPath();
+  ctx.moveTo(-size * 0.6, 0);
+  ctx.lineTo(-size * 0.95, -size * 0.25 - tailSwing);
+  ctx.lineTo(-size * 0.74, -size * 0.02);
+  ctx.lineTo(-size * 0.95, size * 0.25 + tailSwing);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "#3ea8d8";
+  ctx.beginPath();
+  ctx.moveTo(size * 0.03, -size * 0.1);
+  ctx.lineTo(-size * 0.08, -size * 0.44);
+  ctx.lineTo(size * 0.18, -size * 0.18);
+  ctx.closePath();
+  ctx.fill();
+
+  drawSeaEye(size * 0.41, -size * 0.08, size * 0.05);
+  ctx.restore();
+}
+
+function drawOctopus(animal, size, time) {
+  ctx.save();
+  ctx.fillStyle = animal.color;
+  ctx.beginPath();
+  ctx.ellipse(0, -size * 0.14, size * 0.42, size * 0.34, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.lineCap = "round";
+  ctx.strokeStyle = animal.color;
+  ctx.lineWidth = size * 0.12;
+  for (let i = 0; i < 6; i += 1) {
+    const t = i / 5;
+    const startX = -size * 0.34 + t * size * 0.68;
+    const sway = Math.sin(time * 5 + i * 0.9) * size * 0.14;
+    ctx.beginPath();
+    ctx.moveTo(startX, size * 0.02);
+    ctx.quadraticCurveTo(startX + sway, size * 0.34, startX - sway * 0.4, size * 0.66);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = "rgba(255,255,255,0.24)";
+  for (let i = 0; i < 4; i += 1) {
+    ctx.beginPath();
+    ctx.arc(-size * 0.21 + i * size * 0.14, -size * 0.23, size * 0.04, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  drawSeaEye(-size * 0.11, -size * 0.16, size * 0.055);
+  drawSeaEye(size * 0.11, -size * 0.16, size * 0.055);
+  ctx.restore();
+}
+
+function drawManta(animal, size, time) {
+  const wing = Math.sin(time * 4.4) * size * 0.1;
+  ctx.save();
+  ctx.fillStyle = animal.color;
+  ctx.beginPath();
+  ctx.moveTo(0, -size * 0.26);
+  ctx.bezierCurveTo(size * 0.62, -size * 0.5 + wing, size * 0.72, size * 0.2 + wing, size * 0.16, size * 0.24);
+  ctx.quadraticCurveTo(0, size * 0.3, -size * 0.16, size * 0.24);
+  ctx.bezierCurveTo(-size * 0.72, size * 0.2 - wing, -size * 0.62, -size * 0.5 - wing, 0, -size * 0.26);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(255,255,255,0.2)";
+  ctx.beginPath();
+  ctx.moveTo(0, -size * 0.2);
+  ctx.bezierCurveTo(size * 0.32, -size * 0.24, size * 0.34, size * 0.08, 0, size * 0.16);
+  ctx.bezierCurveTo(-size * 0.34, size * 0.08, -size * 0.32, -size * 0.24, 0, -size * 0.2);
+  ctx.fill();
+
+  ctx.strokeStyle = "#7244a3";
+  ctx.lineWidth = size * 0.05;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(0, size * 0.18);
+  ctx.quadraticCurveTo(size * 0.08, size * 0.52, size * 0.02, size * 0.72);
+  ctx.stroke();
+
+  drawSeaEye(size * 0.07, -size * 0.08, size * 0.04);
+  ctx.restore();
+}
+
+function drawSeahorse(animal, size, time) {
+  const sway = Math.sin(time * 4.5) * size * 0.06;
+  ctx.save();
+  ctx.translate(0, sway);
+  ctx.strokeStyle = animal.color;
+  ctx.lineWidth = size * 0.24;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(-size * 0.2, -size * 0.2);
+  ctx.quadraticCurveTo(-size * 0.02, -size * 0.08, -size * 0.04, size * 0.18);
+  ctx.quadraticCurveTo(-size * 0.08, size * 0.34, size * 0.08, size * 0.48);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(size * 0.12, size * 0.47, size * 0.14, Math.PI * 0.2, Math.PI * 2.05);
+  ctx.stroke();
+
+  ctx.fillStyle = animal.color;
+  ctx.beginPath();
+  ctx.arc(-size * 0.24, -size * 0.24, size * 0.16, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(-size * 0.36, -size * 0.21, size * 0.11, size * 0.05, -0.08, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#ffe27f";
+  ctx.beginPath();
+  ctx.moveTo(-size * 0.03, -size * 0.05);
+  ctx.lineTo(size * 0.18, -size * 0.16);
+  ctx.lineTo(size * 0.01, size * 0.05);
+  ctx.closePath();
+  ctx.fill();
+
+  drawSeaEye(-size * 0.18, -size * 0.27, size * 0.04);
+  ctx.restore();
+}
+
+function drawJelly(animal, size, time) {
+  const pulse = 1 + Math.sin(time * 4) * 0.07;
+  ctx.save();
+  ctx.scale(pulse, 1);
+  ctx.fillStyle = animal.color;
+  ctx.beginPath();
+  ctx.moveTo(-size * 0.36, -size * 0.02);
+  ctx.quadraticCurveTo(-size * 0.34, -size * 0.44, 0, -size * 0.44);
+  ctx.quadraticCurveTo(size * 0.34, -size * 0.44, size * 0.36, -size * 0.02);
+  for (let i = 0; i < 5; i += 1) {
+    const x = size * (0.36 - i * 0.18);
+    const r = size * (i % 2 ? 0.07 : 0.1);
+    ctx.quadraticCurveTo(x - size * 0.09, size * 0.09 + r, x - size * 0.18, -size * 0.02);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(255,255,255,0.22)";
+  ctx.beginPath();
+  ctx.ellipse(0, -size * 0.25, size * 0.21, size * 0.1, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = animal.color;
+  ctx.lineWidth = size * 0.05;
+  ctx.lineCap = "round";
+  for (let i = 0; i < 4; i += 1) {
+    const x = -size * 0.2 + i * size * 0.13;
+    const sway = Math.sin(time * 5 + i * 1.1) * size * 0.12;
+    ctx.beginPath();
+    ctx.moveTo(x, size * 0.03);
+    ctx.quadraticCurveTo(x + sway, size * 0.34, x - sway * 0.4, size * 0.62);
+    ctx.stroke();
+  }
+
+  drawSeaEye(-size * 0.09, -size * 0.13, size * 0.04);
+  drawSeaEye(size * 0.09, -size * 0.13, size * 0.04);
+  ctx.restore();
+}
+
+function drawFishFallback(animal, size, time) {
+  const tailSwing = Math.sin(time * 6) * size * 0.1;
+  ctx.save();
+  ctx.fillStyle = animal.color;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, size * 0.42, size * 0.26, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-size * 0.38, 0);
+  ctx.lineTo(-size * 0.65, -size * 0.2 - tailSwing);
+  ctx.lineTo(-size * 0.65, size * 0.2 + tailSwing);
+  ctx.closePath();
+  ctx.fill();
+  drawSeaEye(size * 0.2, -size * 0.07, size * 0.04);
+  ctx.restore();
+}
+
+function drawSeaCreature(animal, size, time, facing = 1) {
+  if (!animal) return;
+  const name = animal.name || "";
+  ctx.save();
+  ctx.scale(facing >= 0 ? 1 : -1, 1);
+  if (name.includes("Turtle")) drawSeaTurtle(animal, size, time);
+  else if (name.includes("Dolphin")) drawDolphin(animal, size, time);
+  else if (name.includes("Octopus")) drawOctopus(animal, size, time);
+  else if (name.includes("Manta")) drawManta(animal, size, time);
+  else if (name.includes("Seahorse")) drawSeahorse(animal, size, time);
+  else if (name.includes("Jelly")) drawJelly(animal, size, time);
+  else drawFishFallback(animal, size, time);
+  ctx.restore();
+}
+
 function drawSeaCardCollectible(item, time) {
   const animal = item.animal || animalRoster[0];
   const r = item.r;
@@ -1292,11 +1561,7 @@ function drawSeaCardCollectible(item, time) {
   ctx.fillStyle = "rgba(255,255,255,0.82)";
   roundRect(-r * 0.64, -r * 0.72, r * 1.28, r * 1.02, 7);
   ctx.fill();
-  ctx.fillStyle = animal.color;
-  ctx.font = `900 ${r * 0.86}px sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(animal.icon, 0, -2);
+  drawSeaCreature(animal, r * 0.9, time, item.facing || 1);
   ctx.fillStyle = "#143357";
   ctx.font = `900 ${r * 0.34}px sans-serif`;
   ctx.fillText("CARD", 0, r * 0.56);
@@ -1308,19 +1573,16 @@ function drawDistractions() {
     ctx.save();
     ctx.translate(distraction.x, distraction.y);
     ctx.globalAlpha = distraction.alpha;
-    ctx.fillStyle = "rgba(255,255,255,0.24)";
+    ctx.fillStyle = "rgba(255,255,255,0.18)";
     ctx.beginPath();
-    ctx.ellipse(0, 0, distraction.size * 1.1, distraction.size * 0.8, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, distraction.size * 1.02, distraction.size * 0.66, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = distraction.animal.color;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, distraction.size * 0.9, distraction.size * 0.54, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#143357";
-    ctx.font = `900 ${Math.floor(distraction.size * 0.64)}px sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(distraction.animal.icon, 0, 4);
+    drawSeaCreature(
+      distraction.animal,
+      distraction.size * 0.9,
+      state.time + distraction.phase,
+      distraction.direction > 0 ? 1 : -1
+    );
     ctx.restore();
   }
 }
@@ -1336,15 +1598,7 @@ function drawAnimalBubble(item, time) {
   ctx.strokeStyle = "rgba(255,255,255,0.82)";
   ctx.lineWidth = 3;
   ctx.stroke();
-  ctx.fillStyle = animal.color;
-  ctx.beginPath();
-  ctx.ellipse(0, 2, item.r * 0.86, item.r * 0.62, Math.sin(time) * 0.15, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#143357";
-  ctx.font = `900 ${item.r * 0.78}px sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(animal.icon, 0, 4);
+  drawSeaCreature(animal, item.r * 1.15, time + item.wobble, item.facing || 1);
   ctx.restore();
 }
 
